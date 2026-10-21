@@ -1,5 +1,5 @@
 /**
- * Controlador de Habitaciones (Adaptado para Turso)
+ * Controlador de Habitaciones (Optimizado para Respuesta Instantánea con Turso)
  * Maneja las solicitudes HTTP y coordina la sincronización en tiempo real vía Socket.io
  */
 const habitacionModel = require('../models/habitacionModel');
@@ -92,7 +92,7 @@ async function getEstadisticas(req, res) {
 
 /**
  * PATCH /api/habitaciones/:id/estado
- * Actualiza el estado de la habitación tras pasar por el middleware de validación de rol
+ * Actualiza el estado de la habitación y responde al instante
  */
 async function cambiarEstado(req, res) {
   try {
@@ -100,10 +100,7 @@ async function cambiarEstado(req, res) {
     const { nuevo_estado, rol, huesped, notas, usuario } = req.body;
     const habitacionAnterior = req.habitacion;
 
-    const habitacionActualizada = await habitacionModel.updateEstado(id, nuevo_estado, {
-      huesped,
-      notas
-    });
+    const habitacionActualizada = await habitacionModel.updateEstado(id, nuevo_estado);
 
     if (!habitacionActualizada) {
       return res.status(500).json({
@@ -121,16 +118,8 @@ async function cambiarEstado(req, res) {
       timestamp: new Date().toISOString()
     };
 
-    // Emitir evento en tiempo real a todos los clientes conectados
-    if (ioInstance) {
-      ioInstance.emit('habitacion:actualizada', payloadEvento);
-
-      // Enviar también estadísticas actualizadas para refrescar KPIs de inmediato
-      const statsActualizadas = await habitacionModel.getEstadisticas();
-      ioInstance.emit('stats:actualizadas', statsActualizadas);
-    }
-
-    return res.status(200).json({
+    // 1. Responder INMEDIATAMENTE a la web/móvil para un cambio visual al instante
+    res.status(200).json({
       exito: true,
       mensaje: `Habitación ${habitacionActualizada.numero} actualizada a ${habitacionActualizada.estado}`,
       datos: habitacionActualizada,
@@ -140,6 +129,19 @@ async function cambiarEstado(req, res) {
         autorizado_por: rol
       }
     });
+
+    // 2. Emitir eventos por Socket.io y recargar estadísticas en SEGUNDO PLANO
+    if (ioInstance) {
+      ioInstance.emit('habitacion:actualizada', payloadEvento);
+
+      // No bloquea la respuesta HTTP
+      habitacionModel.getEstadisticas()
+        .then(statsActualizadas => {
+          ioInstance.emit('stats:actualizadas', statsActualizadas);
+        })
+        .catch(err => console.error('[Socket Stats Error]:', err.message));
+    }
+
   } catch (error) {
     console.error('[Controller] Error al cambiar estado:', error);
     return res.status(500).json({

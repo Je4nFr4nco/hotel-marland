@@ -1,5 +1,5 @@
 /**
- * Modelo de Datos: Habitaciones (Adaptado para Turso)
+ * Modelo de Datos: Habitaciones (Optimizado para Turso)
  * Capa de abstracción para operaciones SQL sobre la tabla habitaciones
  */
 const { db, resetDatabase } = require('../config/database');
@@ -59,16 +59,11 @@ const habitacionModel = {
   },
 
   /**
-   * Actualiza el estado de una habitación
+   * Actualiza el estado de una habitación (Elimina la lectura previa innecesaria)
    * @param {number|string} id 
    * @param {string} nuevoEstado 
    */
   async updateEstado(id, nuevoEstado) {
-    const habitacionActual = await this.findById(id);
-    if (!habitacionActual) {
-      return null;
-    }
-
     await db.execute({
       sql: `
         UPDATE habitaciones 
@@ -83,32 +78,34 @@ const habitacionModel = {
   },
 
   /**
-   * Obtiene métricas estadísticas globales y agrupadas por piso
+   * Obtiene métricas estadísticas ejecutando las consultas en PARALELO
    */
   async getEstadisticas() {
-    const globalRes = await db.execute(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN estado = 'DISPONIBLE' THEN 1 ELSE 0 END) as disponibles,
-        SUM(CASE WHEN estado = 'OCUPADA' THEN 1 ELSE 0 END) as ocupadas,
-        SUM(CASE WHEN estado = 'SUCIA' THEN 1 ELSE 0 END) as sucias,
-        SUM(CASE WHEN estado = 'INHABILITADA' THEN 1 ELSE 0 END) as inhabilitadas
-      FROM habitaciones
-    `);
-    const globalStats = globalRes.rows[0] || {};
+    const [globalRes, pisosRes] = await Promise.all([
+      db.execute(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN estado = 'DISPONIBLE' THEN 1 ELSE 0 END) as disponibles,
+          SUM(CASE WHEN estado = 'OCUPADA' THEN 1 ELSE 0 END) as ocupadas,
+          SUM(CASE WHEN estado = 'SUCIA' THEN 1 ELSE 0 END) as sucias,
+          SUM(CASE WHEN estado = 'INHABILITADA' THEN 1 ELSE 0 END) as inhabilitadas
+        FROM habitaciones
+      `),
+      db.execute(`
+        SELECT 
+          piso,
+          COUNT(*) as total,
+          SUM(CASE WHEN estado = 'DISPONIBLE' THEN 1 ELSE 0 END) as disponibles,
+          SUM(CASE WHEN estado = 'OCUPADA' THEN 1 ELSE 0 END) as ocupadas,
+          SUM(CASE WHEN estado = 'SUCIA' THEN 1 ELSE 0 END) as sucias,
+          SUM(CASE WHEN estado = 'INHABILITADA' THEN 1 ELSE 0 END) as inhabilitadas
+        FROM habitaciones
+        GROUP BY piso
+        ORDER BY piso ASC
+      `)
+    ]);
 
-    const pisosRes = await db.execute(`
-      SELECT 
-        piso,
-        COUNT(*) as total,
-        SUM(CASE WHEN estado = 'DISPONIBLE' THEN 1 ELSE 0 END) as disponibles,
-        SUM(CASE WHEN estado = 'OCUPADA' THEN 1 ELSE 0 END) as ocupadas,
-        SUM(CASE WHEN estado = 'SUCIA' THEN 1 ELSE 0 END) as sucias,
-        SUM(CASE WHEN estado = 'INHABILITADA' THEN 1 ELSE 0 END) as inhabilitadas
-      FROM habitaciones
-      GROUP BY piso
-      ORDER BY piso ASC
-    `);
+    const globalStats = globalRes.rows[0] || {};
     const porPiso = pisosRes.rows;
 
     const total = Number(globalStats.total || 0);
