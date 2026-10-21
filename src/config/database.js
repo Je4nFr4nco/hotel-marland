@@ -1,8 +1,8 @@
 /**
- * Configuración y Conexión de Base de Datos SQLite
- * Utiliza el módulo nativo de alto rendimiento `node:sqlite` (Node.js 22+)
+ * Configuración y Conexión de Base de Datos para Turso y SQLite
+ * Compatible con la nube (Turso) y respaldo local (file:hotel.db)
  */
-const { DatabaseSync } = require('node:sqlite');
+const { createClient } = require('@libsql/client');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,72 +15,76 @@ if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
 
-const db = new DatabaseSync(DB_PATH);
+// Si existen las variables de entorno se conecta a Turso en la nube, si no, usa el archivo local
+const dbUrl = process.env.TURSO_DATABASE_URL || `file:${DB_PATH}`;
+const authToken = process.env.TURSO_AUTH_TOKEN || undefined;
 
-// Habilitar claves foráneas y modo WAL para máxima concurrencia y velocidad
-try {
-  db.exec('PRAGMA foreign_keys = ON;');
-  db.exec('PRAGMA journal_mode = WAL;');
-} catch (err) {
-  console.warn('[DB] Advertencia al configurar PRAGMAs:', err.message);
-}
+const db = createClient({
+  url: dbUrl,
+  authToken: authToken
+});
 
 /**
- * Inicializa la base de datos si la tabla no existe o está vacía
+ * Inicializa la base de datos en la nube si las tablas no existen o están vacías
  */
-function initDatabase() {
+async function initDatabase() {
   try {
-    const tableCheck = db.prepare(`
+    const tableCheck = await db.execute(`
       SELECT count(*) as count 
       FROM sqlite_master 
       WHERE type='table' AND name IN ('habitaciones', 'usuarios')
-    `).get();
+    `);
 
     let needsSeed = false;
+    const countTables = Number(tableCheck.rows[0]?.count || 0);
 
-    if (!tableCheck || tableCheck.count < 2) {
+    if (countTables < 2) {
       console.log('[DB] Creando esquema de base de datos desde schema.sql...');
       const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf-8');
-      db.exec(schemaSql);
+      await db.executeMultiple(schemaSql);
       needsSeed = true;
     }
 
-    const rowCount = db.prepare('SELECT count(*) as count FROM habitaciones').get();
-    const userCount = db.prepare('SELECT count(*) as count FROM usuarios').get();
-    if (rowCount.count === 0 || userCount.count === 0) {
+    const rowCountRes = await db.execute('SELECT count(*) as count FROM habitaciones');
+    const userCountRes = await db.execute('SELECT count(*) as count FROM usuarios');
+
+    const rowCount = Number(rowCountRes.rows[0]?.count || 0);
+    const userCount = Number(userCountRes.rows[0]?.count || 0);
+
+    if (rowCount === 0 || userCount === 0) {
       needsSeed = true;
     }
 
     if (needsSeed) {
-      console.log('[DB] Insertando datos semilla (habitaciones y usuarios)...');
+      console.log('[DB] Insertando datos semilla en Turso...');
       const seedsSql = fs.readFileSync(SEEDS_PATH, 'utf-8');
-      db.exec(seedsSql);
-      const total = db.prepare('SELECT count(*) as count FROM habitaciones').get();
-      const totalUsers = db.prepare('SELECT count(*) as count FROM usuarios').get();
-      console.log(`[DB] Base de datos inicializada: ${total.count} habitaciones, ${totalUsers.count} usuarios.`);
+      await db.executeMultiple(seedsSql);
+
+      const total = await db.execute('SELECT count(*) as count FROM habitaciones');
+      const totalUsers = await db.execute('SELECT count(*) as count FROM usuarios');
+      console.log(`[DB] Base de datos inicializada: ${total.rows[0].count} habitaciones, ${totalUsers.rows[0].count} usuarios.`);
     } else {
-      console.log(`[DB] Base de datos conectada: ${rowCount.count} habitaciones, ${userCount.count} usuarios.`);
+      console.log(`[DB] Base de datos conectada en la nube: ${rowCount} habitaciones, ${userCount} usuarios.`);
     }
   } catch (error) {
-    console.error('[DB] Error crítico al inicializar la base de datos:', error);
-    throw error;
+    console.error('[DB] Error al inicializar la base de datos:', error.message);
   }
 }
 
 /**
- * Reinicia la base de datos a sus valores iniciales de prueba
+ * Reinicia la base de datos a sus valores iniciales
  */
-function resetDatabase() {
+async function resetDatabase() {
   console.log('[DB] Reiniciando datos semilla...');
   const schemaSql = fs.readFileSync(SCHEMA_PATH, 'utf-8');
   const seedsSql = fs.readFileSync(SEEDS_PATH, 'utf-8');
-  db.exec(schemaSql);
-  db.exec(seedsSql);
-  const count = db.prepare('SELECT count(*) as count FROM habitaciones').get();
-  return count.count;
+  await db.executeMultiple(schemaSql);
+  await db.executeMultiple(seedsSql);
+  const count = await db.execute('SELECT count(*) as count FROM habitaciones');
+  return count.rows[0].count;
 }
 
-// Ejecutar inicialización al cargar el módulo
+// Inicializar la base de datos
 initDatabase();
 
 module.exports = {
