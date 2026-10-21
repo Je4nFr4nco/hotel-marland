@@ -1,7 +1,7 @@
 const { db } = require('../config/database');
 
 const DNI_PATTERN = /^\d{8}$/;
-const RENIEC_API_URL = 'https://api.apis.net.pe/v2/reniec/dni';
+const RENIEC_API_URL = 'https://apiperu.dev/api/dni';
 
 function crearError(mensaje, statusCode) {
   const error = new Error(mensaje);
@@ -18,25 +18,27 @@ function validarDni(dni) {
 }
 
 async function guardarCliente(dni, persona) {
-  const nombres = String(persona.nombres || '').trim();
-  const apellidoPaterno = String(persona.apellidoPaterno || '').trim();
-  const apellidoMaterno = String(persona.apellidoMaterno || '').trim();
+  const nombres = String(persona.nombres || persona.name || '').trim();
+  const apellidoPaterno = String(persona.apellido_paterno || persona.apellidoPaterno || '').trim();
+  const apellidoMaterno = String(persona.apellido_materno || persona.apellidoMaterno || '').trim();
+  const direccion = String(persona.direccion || persona.direccion_completa || '').trim();
 
   if (!nombres || !apellidoPaterno || !apellidoMaterno) {
-    throw crearError('La respuesta de RENIEC no contiene los datos completos del cliente.', 502);
+    throw crearError('La respuesta de API Perú no contiene los datos completos del cliente.', 502);
   }
 
   await db.execute({
     sql: `
-      INSERT INTO clientes (dni, nombres, apellido_paterno, apellido_materno)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO clientes (dni, nombres, apellido_paterno, apellido_materno, direccion)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(dni) DO UPDATE SET
         nombres = excluded.nombres,
         apellido_paterno = excluded.apellido_paterno,
         apellido_materno = excluded.apellido_materno,
+        direccion = excluded.direccion,
         actualizado_en = datetime('now', 'localtime')
     `,
-    args: [dni, nombres, apellidoPaterno, apellidoMaterno]
+    args: [dni, nombres, apellidoPaterno, apellidoMaterno, direccion]
   });
 
   return obtenerClientePorDni(dni);
@@ -45,7 +47,7 @@ async function guardarCliente(dni, persona) {
 async function obtenerClientePorDni(dni) {
   const result = await db.execute({
     sql: `
-      SELECT id, dni, nombres, apellido_paterno, apellido_materno,
+      SELECT id, dni, nombres, apellido_paterno, apellido_materno, direccion,
              deuda, observaciones_deuda, creado_en, actualizado_en
       FROM clientes
       WHERE dni = ?
@@ -57,7 +59,7 @@ async function obtenerClientePorDni(dni) {
 
 const clienteModel = {
   async findByDni(dni) {
-    const dniNormalizado = validarDni(dni);
+    const cleanDni = validarDni(dni);
     const token = process.env.RENIEC_API_TOKEN;
     if (!token) {
       throw crearError('La consulta RENIEC no está configurada en el servidor.', 503);
@@ -65,10 +67,13 @@ const clienteModel = {
 
     let response;
     try {
-      const url = new URL(RENIEC_API_URL);
-      url.searchParams.set('numero', dniNormalizado);
-      response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+      response = await fetch(RENIEC_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ dni: cleanDni }),
         signal: AbortSignal.timeout(10000)
       });
     } catch (error) {
@@ -84,15 +89,19 @@ const clienteModel = {
       throw crearError('El servicio de RENIEC no pudo completar la consulta.', 502);
     }
 
-    let persona;
+    let respuesta;
     try {
-      persona = await response.json();
+      respuesta = await response.json();
     } catch (error) {
-      console.error('[Cliente Model] Respuesta JSON inválida de RENIEC:', error.message);
-      throw crearError('El servicio de RENIEC devolvió una respuesta inválida.', 502);
+      console.error('[Cliente Model] Respuesta JSON inválida de API Perú:', error.message);
+      throw crearError('El servicio de API Perú devolvió una respuesta inválida.', 502);
     }
 
-    return guardarCliente(dniNormalizado, persona);
+    if (respuesta.success === false || respuesta.success === 0) {
+      throw crearError(respuesta.message || 'API Perú no encontró información para ese DNI.', 404);
+    }
+    const persona = respuesta.data || respuesta;
+    return guardarCliente(cleanDni, persona);
   },
 
   async findLocalByDni(dni) {

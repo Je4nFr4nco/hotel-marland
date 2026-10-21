@@ -18,6 +18,7 @@ const CLIENTES_ALQUILERES_SCHEMA = `
     nombres VARCHAR(100) NOT NULL,
     apellido_paterno VARCHAR(100) NOT NULL,
     apellido_materno VARCHAR(100) NOT NULL,
+    direccion TEXT,
     deuda REAL NOT NULL DEFAULT 0 CHECK (deuda >= 0),
     observaciones_deuda TEXT,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +60,14 @@ async function ensureRentalColumns() {
   }
 }
 
+async function ensureClientColumns() {
+  const result = await db.execute('PRAGMA table_info(clientes)');
+  const existingColumns = new Set(result.rows.map(column => column.name));
+  if (!existingColumns.has('direccion')) {
+    await db.execute('ALTER TABLE clientes ADD COLUMN direccion TEXT');
+  }
+}
+
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
@@ -95,6 +104,7 @@ async function initDatabase() {
 
     await db.executeMultiple(CLIENTES_ALQUILERES_SCHEMA);
     await ensureRentalColumns();
+    await ensureClientColumns();
 
     const rowCountRes = await db.execute('SELECT count(*) as count FROM habitaciones');
     const userCountRes = await db.execute('SELECT count(*) as count FROM usuarios');
