@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Control Habitaciones - Hotel Marland</title>
+
+  <!-- Hojas de Estilo Compactas -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+  <!-- =========================================================
+       1. PANTALLA DE INICIO DE SESIÓN (LOGIN)
+       ========================================================= -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-brand-icon">🏨</div>
+        <h2>HOTEL MARLAND</h2>
+        <p>Control de Habitaciones & Limpieza</p>
+      </div>
+
+      <div id="login-error" class="login-error-box"></div>
+
+      <form id="login-form" class="login-form" onsubmit="app.handleLoginSubmit(event)">
+        <div class="login-form-group">
+          <label for="login-username">Usuario</label>
+          <input 
+            type="text" 
+            id="login-username" 
+            class="login-input" 
+            placeholder="Ej: recepcion o limpieza" 
+            required 
+            autocomplete="username">
+        </div>
+
+        <div class="login-form-group">
+          <label for="login-password">Contraseña</label>
+          <input 
+            type="password" 
+            id="login-password" 
+            class="login-input" 
+            placeholder="Contraseña" 
+            required 
+            autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="login-btn-submit" class="login-btn-submit">
+          Iniciar Sesión
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- =========================================================
+       2. APLICACIÓN PRINCIPAL (POST-LOGIN)
+       ========================================================= -->
+  <div id="app-wrapper" style="display: none; min-height: 100vh; flex-direction: column;">
+    
+    <!-- Barra Superior Azul Institucional (Sin selector de rol, con sesión activa) -->
+    <header class="top-nav-bar">
+      <div class="top-nav-title">
+        <span class="brand-icon">🛏️</span>
+        <span>CONTROL HABITACIONES Limpieza HOTEL MARLAND</span>
+      </div>
+
+      <div class="top-nav-actions">
+        <!-- Perfil del Usuario Autenticado -->
+        <div id="user-profile-badge" class="user-profile-badge">
+          <span id="user-profile-name">Cargando...</span>
+          <span id="user-profile-role" class="user-role-tag">--</span>
+        </div>
+
+        <!-- Indicador En Vivo -->
+        <div class="status-indicator-live" title="Sincronización WebSockets en tiempo real">
+          <span class="pulse-dot"></span>
+          <span id="live-status-text">En Vivo</span>
+        </div>
+
+        <!-- Botón Cerrar Sesión -->
+        <button 
+          class="btn-logout" 
+          onclick="app.cerrarSesion()" 
+          title="Cerrar sesión actual">
+          <span>🚪</span>
+          <span>Salir</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Estructura Principal: Sidebar de Pisos + Rejilla -->
+    <div id="main-layout" class="main-layout role-recepcion-mode">
+      
+      <!-- Barra Lateral de Pisos (Izquierda) -->
+      <nav id="floors-sidebar" class="floors-sidebar" aria-label="Filtro por pisos">
+        <!-- Generado dinámicamente: TODOS, PISO 1..7 -->
+      </nav>
+
+      <!-- Área de Rejilla de Habitaciones (Derecha) -->
+      <main class="rooms-viewport">
+        <div id="rooms-compact-grid" class="rooms-compact-grid" aria-live="polite">
+          <!-- Generado dinámicamente: Tarjetas compactas -->
+        </div>
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Contenedor de Notificaciones Rápidas -->
+  <div id="mini-toast-container" class="mini-toast-container"></div>
+
+  <!-- Scripts: Socket.io + Módulos JS -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/socket.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

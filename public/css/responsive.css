@@ -1,0 +1,50 @@
+/**
+ * Estilos Responsivos - Hotel Marland Sistema Compacto
+ */
+
+@media (min-width: 820px) {
+  /* En pantallas medianas y de escritorio, ajustar la rejilla para mostrar hasta 7 columnas alineadas */
+  .rooms-compact-grid {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .top-nav-title {
+    font-size: 0.78rem;
+  }
+
+  .floors-sidebar {
+    width: 68px;
+    padding: 0.35rem 0.2rem;
+  }
+
+  .floor-pill-btn {
+    padding: 0.45rem 0.15rem;
+    font-size: 0.7rem;
+  }
+
+  .rooms-viewport {
+    padding: 0.4rem;
+  }
+
+  .rooms-compact-grid {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 0.4rem;
+  }
+
+  .room-box {
+    min-height: 66px;
+    padding: 0.35rem 0.25rem 0.25rem 0.25rem;
+  }
+
+  .room-box-number {
+    font-size: 1.1rem;
+  }
+
+  .room-box-btn {
+    height: 24px;
+    font-size: 0.68rem;
+  }
+}

@@ -1,0 +1,507 @@
+/**
+ * Estilos del Sistema Compacto con Autenticación - Hotel Marland
+ * Replicando fielmente la estructura visual de la tercera foto (Rejilla Compacta)
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-page);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================================================
+   PANTALLA DE LOGIN (VISTA INICIAL)
+   ========================================================= */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0a192f 0%, #1565c0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 2000;
+}
+
+.login-screen.hidden {
+  display: none !important;
+}
+
+.login-card {
+  background: #ffffff;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem 1.75rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.login-header {
+  margin-bottom: 1.5rem;
+}
+
+.login-brand-icon {
+  font-size: 2.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.login-header h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.2rem;
+}
+
+.login-header p {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: left;
+}
+
+.login-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.login-form-group label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.92rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.login-input:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15);
+}
+
+.login-btn-submit {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #1565c0;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.login-btn-submit:hover {
+  background-color: #0d47a1;
+}
+
+.login-btn-submit:active {
+  transform: scale(0.98);
+}
+
+.login-error-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: none;
+}
+
+
+/* =========================================================
+   BARRA SUPERIOR AZUL INSTITUCIONAL (Fiel a la foto)
+   ========================================================= */
+.top-nav-bar {
+  background-color: var(--color-header-bg);
+  color: var(--color-header-text);
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.top-nav-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.top-nav-title .brand-icon {
+  font-size: 1.1rem;
+}
+
+/* Acciones de Barra Superior Post-Login */
+.top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Badge de Usuario Autenticado */
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-role-tag {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.role-recepcion-tag {
+  background: #1e40af;
+  color: #ffffff;
+}
+
+.role-limpieza-tag {
+  background: #059669;
+  color: #ffffff;
+}
+
+/* Botón Cerrar Sesión */
+.btn-logout {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fee2e2;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.btn-logout:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.status-indicator-live {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #a7f3d0;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: pulse-live 1.8s infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.5; }
+}
+
+/* =========================================================
+   CONTENEDOR PRINCIPAL: SIDEBAR DE PISOS + REJILLA DE CARDS
+   ========================================================= */
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 46px);
+}
+
+.main-layout.hidden {
+  display: none !important;
+}
+
+/* Sidebar Lateral de Pisos (Izquierda) */
+.floors-sidebar {
+  width: 82px;
+  background: #ffffff;
+  border-right: 1px solid #d1d5db;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.35rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.floor-pill-btn {
+  width: 100%;
+  padding: 0.55rem 0.25rem;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.floor-pill-btn:hover {
+  background: #f1f5f9;
+}
+
+/* Botón TODOS en verde sólido como en la imagen de referencia */
+.floor-pill-btn[data-piso="TODOS"] {
+  background: #059669;
+  color: #ffffff;
+  border-color: #047857;
+}
+
+.floor-pill-btn[data-piso="TODOS"]:hover {
+  background: #047857;
+}
+
+.floor-pill-btn.active {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+.floor-pill-btn[data-piso="TODOS"].active {
+  background: #047857;
+  color: #ffffff;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Área de Rejilla de Habitaciones (Derecha) */
+.rooms-viewport {
+  flex: 1;
+  padding: 0.65rem;
+  overflow-y: auto;
+  background-color: #f1f5f9;
+}
+
+.rooms-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.55rem;
+}
+
+/* =========================================================
+   TARJETAS ULTRA-COMPACTAS (Fiel a la foto)
+   ========================================================= */
+.room-box {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: var(--radius-card);
+  padding: 0.45rem 0.4rem 0.4rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  position: relative;
+  min-height: 74px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  user-select: none;
+}
+
+.room-box:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Animación flash cuando una habitación se actualiza en tiempo real */
+.room-box.card-flash {
+  animation: box-glow 1.4s ease-out;
+}
+
+@keyframes box-glow {
+  0% { transform: scale(1.05); box-shadow: 0 0 0 4px #2563eb; }
+  100% { transform: scale(1); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+}
+
+/* Número de Habitación Centrado y en Negrita */
+.room-box-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 0.35rem;
+}
+
+.room-box-number {
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+/* Botón pequeño para alternar Inhabilitada (Solo visible para Recepción) */
+.room-box-toggle-inh {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  background: transparent;
+  border: none;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  border-radius: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.room-box-toggle-inh:hover {
+  opacity: 1;
+  color: #dc2626;
+}
+
+/* Barra o Botón de Estado Inferior */
+.room-box-btn {
+  width: 100%;
+  height: 27px;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  line-height: 1;
+}
+
+.room-box-btn:active {
+  transform: scale(0.96);
+}
+
+/* Estado: DISPONIBLE (Verde) */
+.room-box.status-disponible .room-box-btn {
+  background-color: var(--color-disponible-btn);
+}
+
+/* Estado: OCUPADA (Azul Zafiro / Oscuro) */
+.room-box.status-ocupada .room-box-btn {
+  background-color: var(--color-ocupada-btn);
+}
+
+/* Estado: SUCIA (Naranja / Rojo) */
+.room-box.status-sucia .room-box-btn {
+  background-color: var(--color-sucia-btn);
+}
+
+/* Estado: INHABILITADA (Gris) */
+.room-box.status-inhabilitada .room-box-btn {
+  background-color: var(--color-inhabilitada-btn);
+}
+
+/* En Rol Limpieza: las no sucias no son clickables y se ven atenuadas */
+.role-limpieza-mode .room-box.status-disponible .room-box-btn,
+.role-limpieza-mode .room-box.status-ocupada .room-box-btn,
+.role-limpieza-mode .room-box.status-inhabilitada .room-box-btn {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.role-limpieza-mode .room-box.status-disponible .room-box-btn:active,
+.role-limpieza-mode .room-box.status-ocupada .room-box-btn:active,
+.role-limpieza-mode .room-box.status-inhabilitada .room-box-btn:active {
+  transform: none;
+}
+
+/* Botón Finalizar de Limpieza (resaltado con pulso y sombra viva) */
+.role-limpieza-mode .room-box.status-sucia .room-box-btn {
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.5);
+  font-weight: 800;
+}
+
+/* Toast ultracompacto en la esquina */
+.mini-toast-container {
+  position: fixed;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mini-toast {
+  background: #1e293b;
+  color: #ffffff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  animation: toast-fade 2.5s forwards;
+}
+
+@keyframes toast-fade {
+  0% { opacity: 0; transform: translateY(8px); }
+  15%, 85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
