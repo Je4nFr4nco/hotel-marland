@@ -8,7 +8,7 @@ DELETE FROM habitaciones;
 
 -- 1. USUARIOS SEMILLA (RECEPCIÓN Y LIMPIEZA)
 INSERT INTO usuarios (username, password, nombre, rol) VALUES
-('recepcion', '141516', '(Recepción)', 'RECEPCION'),
+('recepcion', '141618', '(Recepción)', 'RECEPCION'),
 ('limpieza', '141516', '(Limpieza)', 'LIMPIEZA');
 
 -- 2. HABITACIONES (47 Habitaciones en 7 Pisos)
