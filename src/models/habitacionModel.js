@@ -11,25 +11,33 @@ const habitacionModel = {
    * @returns {Promise<Array>} Lista de habitaciones ordenadas por piso y número
    */
   async findAll(filtros = {}) {
-    let sql = 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE 1=1';
+    let sql = `
+      SELECT h.id, h.numero, h.piso, h.estado, h.ultima_actualizacion,
+        (SELECT a.salida_estimada
+         FROM alquileres a
+         WHERE a.habitacion_id = h.id AND a.checkout_en IS NULL
+         ORDER BY a.checkin_en DESC LIMIT 1) AS salida_estimada
+      FROM habitaciones h
+      WHERE 1=1
+    `;
     const params = [];
 
     if (filtros.piso && filtros.piso !== 'TODOS' && filtros.piso !== 'ALL') {
-      sql += ' AND piso = ?';
+      sql += ' AND h.piso = ?';
       params.push(Number(filtros.piso));
     }
 
     if (filtros.estado && filtros.estado !== 'TODOS' && filtros.estado !== 'ALL') {
-      sql += ' AND estado = ?';
+      sql += ' AND h.estado = ?';
       params.push(filtros.estado.toUpperCase());
     }
 
     if (filtros.search) {
-      sql += ' AND numero LIKE ?';
+      sql += ' AND h.numero LIKE ?';
       params.push(`%${filtros.search}%`);
     }
 
-    sql += ' ORDER BY piso ASC, CAST(numero AS INTEGER) ASC';
+    sql += ' ORDER BY h.piso ASC, CAST(h.numero AS INTEGER) ASC';
     const result = await db.execute({ sql, args: params });
     return result.rows;
   },
@@ -40,7 +48,15 @@ const habitacionModel = {
    */
   async findById(id) {
     const result = await db.execute({
-      sql: 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE id = ?',
+      sql: `
+        SELECT h.id, h.numero, h.piso, h.estado, h.ultima_actualizacion,
+          (SELECT a.salida_estimada
+           FROM alquileres a
+           WHERE a.habitacion_id = h.id AND a.checkout_en IS NULL
+           ORDER BY a.checkin_en DESC LIMIT 1) AS salida_estimada
+        FROM habitaciones h
+        WHERE h.id = ?
+      `,
       args: [Number(id)]
     });
     return result.rows[0] || null;
@@ -64,15 +80,32 @@ const habitacionModel = {
    * @param {string} nuevoEstado 
    */
   async updateEstado(id, nuevoEstado) {
-    await db.execute({
-      sql: `
-        UPDATE habitaciones 
-        SET estado = ?, 
-            ultima_actualizacion = datetime('now', 'localtime')
-        WHERE id = ?
-      `,
-      args: [String(nuevoEstado).toUpperCase(), Number(id)]
-    });
+    const transaction = await db.transaction('write');
+    try {
+      const updateResult = await transaction.execute({
+        sql: `
+          UPDATE habitaciones
+          SET estado = ?,
+              ultima_actualizacion = datetime('now', 'localtime')
+          WHERE id = ?
+        `,
+        args: [String(nuevoEstado).toUpperCase(), Number(id)]
+      });
+      if (updateResult.rowsAffected === 1 && String(nuevoEstado).toUpperCase() !== 'OCUPADA') {
+        await transaction.execute({
+          sql: `
+            UPDATE alquileres
+            SET checkout_en = datetime('now', 'localtime')
+            WHERE habitacion_id = ? AND checkout_en IS NULL
+          `,
+          args: [Number(id)]
+        });
+      }
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
 
     return await this.findById(id);
   },

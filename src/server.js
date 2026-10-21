@@ -13,7 +13,10 @@ require('./config/database');
 
 const habitacionRoutes = require('./routes/habitacionRoutes');
 const authRoutes = require('./routes/authRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
+const alquilerRoutes = require('./routes/alquilerRoutes');
 const habitacionController = require('./controllers/habitacionController');
+const clienteController = require('./controllers/clienteController');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +31,7 @@ const io = new Server(server, {
 
 // Inyectar instancia de Socket.io en el controlador para broadcast en tiempo real
 habitacionController.setSocketIO(io);
+clienteController.setSocketIO(io);
 
 // Middlewares globales
 app.use(cors());
@@ -39,6 +43,8 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Rutas de API REST
 app.use('/api/auth', authRoutes);
+app.use('/api/clientes', clienteRoutes);
+app.use('/api/alquileres', alquilerRoutes);
 app.use('/api/habitaciones', habitacionRoutes);
 
 // Endpoint de verificación de estado del servicio

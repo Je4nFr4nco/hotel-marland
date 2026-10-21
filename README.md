@@ -60,9 +60,11 @@ La base de datos incluye dos usuarios preconfigurados listos para operar y proba
 
 Configura `RENIEC_API_TOKEN` en el entorno del servidor para habilitar la consulta de DNI. Las rutas de clientes y check-in están protegidas y requieren un token de usuario con rol `RECEPCION`.
 
-- `GET /api/habitaciones/clientes/dni/:dni`: consulta RENIEC y registra/actualiza los datos del cliente.
-- `POST /api/habitaciones/clientes/saldar-deuda`: recibe `dni`; opcionalmente `monto` para un pago parcial y `observaciones`. Si se omite `monto`, se salda toda la deuda.
-- `POST /api/habitaciones/alquileres/checkin`: recibe `dni` y `habitacion_numero`. Primero se debe consultar el DNI; el check-in registra el alquiler y cambia la habitación disponible a `OCUPADA`.
+- `GET /api/clientes/dni/:dni`: consulta RENIEC y registra/actualiza los datos del cliente.
+- `POST /api/clientes/saldar-deuda`: recibe `dni`; opcionalmente `monto` para un pago parcial y `observaciones`. Si se omite `monto`, se salda toda la deuda.
+- `POST /api/alquileres/checkin`: recibe `dni`, `habitacion_numero`, `horas_estadia`, `precio` y `metodo_pago` (`EFECTIVO`, `YAPE` o `POS`). Primero se debe consultar el DNI; el check-in registra el alquiler y cambia la habitación disponible a `OCUPADA`.
+
+El formulario de check-in permite elegir duración, precio y método de pago. Las habitaciones ocupadas muestran el tiempo restante hasta la salida estimada y alertan cuando quedan 10 minutos o menos.
 
 Las solicitudes protegidas deben enviar `Authorization: Bearer <token>`.
 

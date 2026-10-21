@@ -54,7 +54,11 @@ CREATE TABLE IF NOT EXISTS alquileres (
     cliente_id INTEGER NOT NULL REFERENCES clientes(id),
     habitacion_id INTEGER NOT NULL REFERENCES habitaciones(id),
     checkin_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checkout_en DATETIME
+    checkout_en DATETIME,
+    horas_estadia INTEGER NOT NULL DEFAULT 1,
+    precio REAL NOT NULL DEFAULT 0,
+    metodo_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
+    salida_estimada DATETIME
 );
 
 CREATE INDEX IF NOT EXISTS idx_alquileres_cliente_id ON alquileres(cliente_id);

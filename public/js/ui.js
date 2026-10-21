@@ -81,6 +81,10 @@ const ui = {
       iconBtn = '✕';
     }
 
+    const countdownHtml = estado === 'OCUPADA' && hab.salida_estimada
+      ? `<span class="room-countdown" data-salida-estimada="${hab.salida_estimada}">Calculando...</span>`
+      : '';
+
     // Botón de bloqueo rápido para Recepción
     let toggleInhHtml = '';
     if (rol === 'RECEPCION') {
@@ -107,6 +111,8 @@ const ui = {
           <span class="room-box-number">${hab.numero}</span>
           ${toggleInhHtml}
         </div>
+
+        ${countdownHtml}
 
         <button 
           type="button" 
@@ -138,6 +144,26 @@ const ui = {
         if (c) c.classList.remove('card-flash');
       }, 1500);
     }
+  },
+
+  updateRoomCountdown(roomId, remainingMs, isAlert) {
+    const card = document.getElementById(`card-room-${roomId}`);
+    const countdown = card && card.querySelector('.room-countdown');
+    if (!card || !countdown) return;
+
+    if (isAlert) card.classList.add('room-expiry-alert');
+    else card.classList.remove('room-expiry-alert');
+
+    if (remainingMs <= 0) {
+      countdown.textContent = 'Salida vencida';
+      return;
+    }
+
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    countdown.textContent = `Sale en ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   },
 
   /**

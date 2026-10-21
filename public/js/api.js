@@ -142,6 +142,43 @@ const api = {
     }
   },
 
+  async consultarClienteDni(dni) {
+    const response = await fetch(`${API_BASE_URL}/clientes/dni/${encodeURIComponent(dni)}`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.mensaje || data.error || 'No se pudo consultar el DNI');
+    }
+    return data.datos;
+  },
+
+  async saldarDeuda(payload) {
+    const response = await fetch(`${API_BASE_URL}/clientes/saldar-deuda`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.mensaje || data.error || 'No se pudo saldar la deuda');
+    }
+    return data.datos;
+  },
+
+  async registrarCheckin(payload) {
+    const response = await fetch(`${API_BASE_URL}/alquileres/checkin`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.mensaje || data.error || 'No se pudo registrar el check-in');
+    }
+    return data.datos;
+  },
+
   async resetSeeds() {
     try {
       const response = await fetch(`${API_BASE_URL}/habitaciones/reset`, {

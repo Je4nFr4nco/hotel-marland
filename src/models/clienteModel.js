@@ -182,13 +182,27 @@ const clienteModel = {
     }
   },
 
-  async registrarCheckin(dni, habitacionNumero) {
+  async registrarCheckin(dni, habitacionNumero, detalles = {}) {
     const dniNormalizado = validarDni(dni);
     const numero = String(habitacionNumero || '').trim();
     if (!numero) {
       throw crearError('Debe especificar el número de habitación.', 400);
     }
 
+    const horasEstadia = Number(detalles.horas_estadia);
+    const precio = Number(detalles.precio);
+    const metodoPago = String(detalles.metodo_pago || '').trim().toUpperCase();
+    if (!Number.isInteger(horasEstadia) || horasEstadia < 1 || horasEstadia > 24) {
+      throw crearError('Las horas de estadía deben ser un número entero entre 1 y 24.', 400);
+    }
+    if (!Number.isFinite(precio) || precio <= 0) {
+      throw crearError('El precio debe ser un número mayor que cero.', 400);
+    }
+    if (!['EFECTIVO', 'YAPE', 'POS'].includes(metodoPago)) {
+      throw crearError('El método de pago debe ser Efectivo, Yape o POS.', 400);
+    }
+
+    const salidaEstimada = new Date(Date.now() + horasEstadia * 60 * 60 * 1000).toISOString();
     const transaction = await db.transaction('write');
     try {
       const clienteResult = await transaction.execute({
@@ -201,7 +215,7 @@ const clienteModel = {
       }
 
       const habitacionResult = await transaction.execute({
-        sql: 'SELECT id, numero, estado FROM habitaciones WHERE numero = ?',
+        sql: 'SELECT id, numero, piso, estado FROM habitaciones WHERE numero = ?',
         args: [numero]
       });
       const habitacion = habitacionResult.rows[0];
@@ -213,8 +227,12 @@ const clienteModel = {
       }
 
       const alquilerResult = await transaction.execute({
-        sql: 'INSERT INTO alquileres (cliente_id, habitacion_id) VALUES (?, ?)',
-        args: [cliente.id, habitacion.id]
+        sql: `
+          INSERT INTO alquileres
+            (cliente_id, habitacion_id, horas_estadia, precio, metodo_pago, salida_estimada)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+        args: [cliente.id, habitacion.id, horasEstadia, precio, metodoPago, salidaEstimada]
       });
       const updateResult = await transaction.execute({
         sql: `
@@ -229,12 +247,24 @@ const clienteModel = {
         throw crearError(`La habitación ${numero} dejó de estar disponible.`, 409);
       }
 
+      const updatedRoomResult = await transaction.execute({
+        sql: 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE id = ?',
+        args: [habitacion.id]
+      });
+
       await transaction.commit();
       return {
         id: Number(alquilerResult.lastInsertRowid),
         cliente,
-        habitacion: { id: habitacion.id, numero: habitacion.numero },
-        checkin_en: new Date().toISOString()
+        habitacion: {
+          ...updatedRoomResult.rows[0],
+          salida_estimada: salidaEstimada
+        },
+        checkin_en: new Date().toISOString(),
+        horas_estadia: horasEstadia,
+        precio,
+        metodo_pago: metodoPago,
+        salida_estimada: salidaEstimada
       };
     } catch (error) {
       await transaction.rollback();

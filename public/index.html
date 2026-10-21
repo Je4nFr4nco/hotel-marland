@@ -111,6 +111,77 @@
 
   </div>
 
+  <div id="checkin-modal" class="modal-backdrop" role="presentation" hidden>
+    <section class="checkin-modal" role="dialog" aria-modal="true" aria-labelledby="checkin-title">
+      <header class="checkin-modal-header">
+        <div>
+          <p class="modal-eyebrow">Recepción</p>
+          <h2 id="checkin-title">Check-in · Habitación <span id="checkin-room-number"></span></h2>
+        </div>
+        <button type="button" class="modal-close-btn" aria-label="Cerrar" onclick="app.cerrarCheckinModal()">×</button>
+      </header>
+
+      <form id="checkin-form" class="checkin-form" onsubmit="app.confirmarCheckin(event)">
+        <div class="modal-form-group">
+          <label for="checkin-dni">DNI del huésped</label>
+          <input id="checkin-dni" name="dni" type="text" inputmode="numeric" autocomplete="off"
+            maxlength="8" pattern="[0-9]{8}" placeholder="Ingrese los 8 dígitos" required>
+          <p id="checkin-dni-status" class="field-status" aria-live="polite"></p>
+        </div>
+
+        <section id="checkin-client-card" class="client-info-card" aria-live="polite" hidden>
+          <h3 id="checkin-client-name"></h3>
+          <p>DNI: <span id="checkin-client-dni"></span></p>
+          <div id="checkin-debt-warning" class="debt-warning" hidden>
+            <div>
+              <strong>Deuda pendiente</strong>
+              <p>Saldo: <span id="checkin-client-debt"></span></p>
+              <p id="checkin-debt-observations"></p>
+            </div>
+            <button type="button" id="checkin-settle-debt" class="btn-settle-debt"
+              onclick="app.saldarDeudaCheckin()">Saldar Deuda</button>
+          </div>
+          <p id="checkin-debt-paid" class="debt-paid" hidden>Sin deuda pendiente</p>
+        </section>
+
+        <div class="checkin-fields-row">
+          <div class="modal-form-group">
+            <label for="checkin-hours">Horas de estadía</label>
+            <select id="checkin-hours" name="horas_estadia" required>
+              <option value="1">1 hora</option>
+              <option value="2">2 horas</option>
+              <option value="3">3 horas</option>
+              <option value="4">4 horas</option>
+              <option value="6">6 horas</option>
+              <option value="8">8 horas</option>
+              <option value="12">12 horas</option>
+              <option value="24">24 horas</option>
+            </select>
+          </div>
+          <div class="modal-form-group">
+            <label for="checkin-price">Precio (S/)</label>
+            <input id="checkin-price" name="precio" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <div class="modal-form-group">
+          <label for="checkin-payment-method">Método de pago</label>
+          <select id="checkin-payment-method" name="metodo_pago" required>
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="YAPE">Yape</option>
+            <option value="POS">POS</option>
+          </select>
+        </div>
+
+        <p id="checkin-form-error" class="form-error" role="alert" hidden></p>
+        <footer class="checkin-modal-actions">
+          <button type="button" class="btn-modal-secondary" onclick="app.cerrarCheckinModal()">Cancelar</button>
+          <button id="checkin-submit" type="submit" class="btn-checkin-submit" disabled>Confirmar Check-in</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+
   <!-- Contenedor de Notificaciones Rápidas -->
   <div id="mini-toast-container" class="mini-toast-container"></div>
 

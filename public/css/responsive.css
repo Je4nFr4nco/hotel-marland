@@ -47,4 +47,23 @@
     height: 24px;
     font-size: 0.68rem;
   }
+
+  .room-countdown {
+    font-size: 0.58rem;
+  }
+
+  .checkin-modal {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .checkin-fields-row {
+    flex-direction: column;
+  }
+
+  .debt-warning {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

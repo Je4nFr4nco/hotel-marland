@@ -6,6 +6,11 @@ const app = {
   currentUser: null,
   activeFloor: 'TODOS',
   allRooms: [],
+  checkinRoomId: null,
+  checkinClient: null,
+  dniLookupTimer: null,
+  countdownTimer: null,
+  notifiedCheckoutAlerts: new Set(),
 
   async init() {
     console.log('🏨 Inicializando Hotel Marland con Autenticación...');
@@ -65,6 +70,7 @@ const app = {
 
     // 4. Cargar habitaciones desde la API
     await this.cargarHabitaciones();
+    this.iniciarCuentaRegresiva();
   },
 
   /**
@@ -129,6 +135,11 @@ const app = {
    * Cierra la sesión activa y retorna a la pantalla de login
    */
   cerrarSesion() {
+    this.cerrarCheckinModal();
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
     api.logout();
     this.currentUser = null;
     this.mostrarPantallaLogin();
@@ -196,20 +207,163 @@ const app = {
 
     // ROL RECEPCIÓN (Acceso total de gestión):
     if (rol === 'RECEPCION') {
-      let nuevoEstado = 'DISPONIBLE';
-
       if (estadoActual === 'DISPONIBLE') {
-        nuevoEstado = 'OCUPADA';  // 1 Clic Check-in
-      } else if (estadoActual === 'OCUPADA') {
-        nuevoEstado = 'SUCIA';    // 1 Clic Check-out
-      } else if (estadoActual === 'SUCIA') {
-        nuevoEstado = 'DISPONIBLE'; // 1 Clic Marcar limpia
-      } else if (estadoActual === 'INHABILITADA') {
-        nuevoEstado = 'DISPONIBLE'; // 1 Clic Habilitar
+        this.abrirCheckinModal(id);
+        return;
       }
 
-      await this.ejecutarCambioEstado(id, nuevoEstado);
+      const nextStates = {
+        OCUPADA: 'SUCIA',
+        SUCIA: 'DISPONIBLE',
+        INHABILITADA: 'DISPONIBLE'
+      };
+      if (nextStates[estadoActual]) {
+        await this.ejecutarCambioEstado(id, nextStates[estadoActual]);
+      }
     }
+  },
+
+  abrirCheckinModal(roomId) {
+    const room = this.allRooms.find(item => Number(item.id) === Number(roomId));
+    const modal = document.getElementById('checkin-modal');
+    const form = document.getElementById('checkin-form');
+    if (!room || !modal || !form) return;
+
+    this.checkinRoomId = room.id;
+    this.checkinClient = null;
+    form.reset();
+    document.getElementById('checkin-room-number').textContent = room.numero;
+    document.getElementById('checkin-client-card').hidden = true;
+    document.getElementById('checkin-debt-warning').hidden = true;
+    document.getElementById('checkin-debt-paid').hidden = true;
+    document.getElementById('checkin-dni-status').textContent = '';
+    document.getElementById('checkin-form-error').hidden = true;
+    document.getElementById('checkin-submit').disabled = true;
+    modal.hidden = false;
+    document.getElementById('checkin-dni').focus();
+  },
+
+  cerrarCheckinModal() {
+    const modal = document.getElementById('checkin-modal');
+    if (modal) modal.hidden = true;
+    this.checkinRoomId = null;
+    this.checkinClient = null;
+    if (this.dniLookupTimer) clearTimeout(this.dniLookupTimer);
+  },
+
+  programarConsultaDni(dni) {
+    if (this.dniLookupTimer) clearTimeout(this.dniLookupTimer);
+    this.checkinClient = null;
+    document.getElementById('checkin-submit').disabled = true;
+    document.getElementById('checkin-client-card').hidden = true;
+    document.getElementById('checkin-dni-status').textContent = '';
+
+    if (!/^\d{8}$/.test(dni)) return;
+    document.getElementById('checkin-dni-status').textContent = 'Consultando RENIEC...';
+    this.dniLookupTimer = setTimeout(() => this.consultarDniCheckin(dni), 450);
+  },
+
+  async consultarDniCheckin(dni) {
+    const status = document.getElementById('checkin-dni-status');
+    try {
+      const client = await api.consultarClienteDni(dni);
+      if (document.getElementById('checkin-dni').value.trim() !== dni) return;
+      this.checkinClient = client;
+      document.getElementById('checkin-client-name').textContent =
+        `${client.nombres} ${client.apellido_paterno} ${client.apellido_materno}`;
+      document.getElementById('checkin-client-dni').textContent = client.dni;
+      document.getElementById('checkin-client-debt').textContent =
+        `S/ ${Number(client.deuda).toFixed(2)}`;
+      document.getElementById('checkin-debt-observations').textContent =
+        client.observaciones_deuda || '';
+      const hasDebt = Number(client.deuda) > 0;
+      document.getElementById('checkin-debt-warning').hidden = !hasDebt;
+      document.getElementById('checkin-debt-paid').hidden = hasDebt;
+      document.getElementById('checkin-client-card').hidden = false;
+      document.getElementById('checkin-submit').disabled = hasDebt;
+      status.textContent = hasDebt
+        ? 'Debe saldar la deuda antes de continuar con el check-in.'
+        : 'Cliente verificado.';
+    } catch (error) {
+      if (document.getElementById('checkin-dni').value.trim() !== dni) return;
+      this.checkinClient = null;
+      status.textContent = error.message || 'No se pudo verificar el DNI.';
+    }
+  },
+
+  async saldarDeudaCheckin() {
+    if (!this.checkinClient) return;
+    const button = document.getElementById('checkin-settle-debt');
+    button.disabled = true;
+    try {
+      const result = await api.saldarDeuda({ dni: this.checkinClient.dni });
+      this.checkinClient = result.cliente;
+      document.getElementById('checkin-client-debt').textContent =
+        `S/ ${Number(result.cliente.deuda).toFixed(2)}`;
+      document.getElementById('checkin-debt-warning').hidden = Number(result.cliente.deuda) <= 0;
+      document.getElementById('checkin-debt-paid').hidden = Number(result.cliente.deuda) > 0;
+      document.getElementById('checkin-submit').disabled = Number(result.cliente.deuda) > 0;
+      ui.showToast('Deuda saldada correctamente');
+    } catch (error) {
+      document.getElementById('checkin-form-error').textContent = error.message;
+      document.getElementById('checkin-form-error').hidden = false;
+    } finally {
+      button.disabled = false;
+    }
+  },
+
+  async confirmarCheckin(event) {
+    event.preventDefault();
+    if (!this.checkinClient || !this.checkinRoomId || Number(this.checkinClient.deuda) > 0) return;
+
+    const formError = document.getElementById('checkin-form-error');
+    const submit = document.getElementById('checkin-submit');
+    const room = this.allRooms.find(item => Number(item.id) === Number(this.checkinRoomId));
+    const payload = {
+      dni: this.checkinClient.dni,
+      habitacion_numero: room.numero,
+      horas_estadia: Number(document.getElementById('checkin-hours').value),
+      precio: Number(document.getElementById('checkin-price').value),
+      metodo_pago: document.getElementById('checkin-payment-method').value
+    };
+
+    submit.disabled = true;
+    submit.textContent = 'Registrando...';
+    formError.hidden = true;
+    try {
+      await api.registrarCheckin(payload);
+      this.cerrarCheckinModal();
+      await this.cargarHabitaciones();
+      ui.showToast(`Check-in registrado · Hab. ${room.numero}`);
+    } catch (error) {
+      formError.textContent = error.message || 'No se pudo registrar el check-in.';
+      formError.hidden = false;
+      submit.disabled = false;
+    } finally {
+      submit.textContent = 'Confirmar Check-in';
+    }
+  },
+
+  iniciarCuentaRegresiva() {
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    const actualizar = () => {
+      this.allRooms.forEach(room => {
+        if (room.estado !== 'OCUPADA' || !room.salida_estimada) return;
+        const salida = new Date(String(room.salida_estimada).replace(' ', 'T'));
+        if (Number.isNaN(salida.getTime())) return;
+
+        const restante = salida.getTime() - Date.now();
+        const enAlerta = restante <= 10 * 60 * 1000;
+        ui.updateRoomCountdown(room.id, restante, enAlerta);
+        const alertaId = `${room.id}:${room.salida_estimada}`;
+        if (enAlerta && !this.notifiedCheckoutAlerts.has(alertaId)) {
+          this.notifiedCheckoutAlerts.add(alertaId);
+          ui.showToast(`⚠️ Habitación ${room.numero}: quedan 10 minutos o menos para la salida.`);
+        }
+      });
+    };
+    actualizar();
+    this.countdownTimer = setInterval(actualizar, 1000);
   },
 
   /**
@@ -277,6 +431,7 @@ const app = {
 
       const rol = this.currentUser ? this.currentUser.rol : 'RECEPCION';
       ui.updateCardInDom(habitacion, rol);
+      this.iniciarCuentaRegresiva();
     });
 
     // Conexión
@@ -297,4 +452,13 @@ window.app = app;
 
 document.addEventListener('DOMContentLoaded', () => {
   app.init();
+  document.getElementById('checkin-dni').addEventListener('input', event => {
+    app.programarConsultaDni(event.target.value.trim());
+  });
+  document.getElementById('checkin-modal').addEventListener('click', event => {
+    if (event.target.id === 'checkin-modal') app.cerrarCheckinModal();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') app.cerrarCheckinModal();
+  });
 });

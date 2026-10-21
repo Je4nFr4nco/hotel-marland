@@ -31,12 +31,33 @@ const CLIENTES_ALQUILERES_SCHEMA = `
     cliente_id INTEGER NOT NULL REFERENCES clientes(id),
     habitacion_id INTEGER NOT NULL REFERENCES habitaciones(id),
     checkin_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checkout_en DATETIME
+    checkout_en DATETIME,
+    horas_estadia INTEGER NOT NULL DEFAULT 1,
+    precio REAL NOT NULL DEFAULT 0,
+    metodo_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
+    salida_estimada DATETIME
   );
 
   CREATE INDEX IF NOT EXISTS idx_alquileres_cliente_id ON alquileres(cliente_id);
   CREATE INDEX IF NOT EXISTS idx_alquileres_habitacion_id ON alquileres(habitacion_id);
 `;
+
+async function ensureRentalColumns() {
+  const result = await db.execute('PRAGMA table_info(alquileres)');
+  const existingColumns = new Set(result.rows.map(column => column.name));
+  const columns = [
+    ['horas_estadia', 'INTEGER NOT NULL DEFAULT 1'],
+    ['precio', 'REAL NOT NULL DEFAULT 0'],
+    ['metodo_pago', "TEXT NOT NULL DEFAULT 'EFECTIVO'"],
+    ['salida_estimada', 'DATETIME']
+  ];
+
+  for (const [name, definition] of columns) {
+    if (!existingColumns.has(name)) {
+      await db.execute(`ALTER TABLE alquileres ADD COLUMN ${name} ${definition}`);
+    }
+  }
+}
 
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
@@ -73,6 +94,7 @@ async function initDatabase() {
     }
 
     await db.executeMultiple(CLIENTES_ALQUILERES_SCHEMA);
+    await ensureRentalColumns();
 
     const rowCountRes = await db.execute('SELECT count(*) as count FROM habitaciones');
     const userCountRes = await db.execute('SELECT count(*) as count FROM usuarios');
