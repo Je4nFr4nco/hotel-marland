@@ -8,7 +8,7 @@ const authController = {
    * POST /api/auth/login
    * Inicio de sesión de usuario
    */
-  login(req, res) {
+  async login(req, res) {
     try {
       const { username, password } = req.body;
 
@@ -20,7 +20,8 @@ const authController = {
         });
       }
 
-      const user = usuarioModel.verifyCredentials(username, password);
+      // Se agrega el await para esperar la respuesta de Turso
+      const user = await usuarioModel.verifyCredentials(username, password);
 
       if (!user) {
         return res.status(401).json({

@@ -1,5 +1,5 @@
 /**
- * Modelo de Datos: Usuarios y Autenticación
+ * Modelo de Datos: Usuarios y Autenticación (Adaptado para Turso)
  */
 const { db } = require('../config/database');
 const crypto = require('node:crypto');
@@ -8,31 +8,37 @@ const JWT_SECRET = process.env.JWT_SECRET || 'hotel_marland_super_secret_key_202
 
 const usuarioModel = {
   /**
-   * Busca un usuario por su nombre de usuario
+   * Busca un usuario por su nombre de usuario en Turso
    * @param {string} username 
    */
-  findByUsername(username) {
-    const stmt = db.prepare('SELECT * FROM usuarios WHERE username = ?');
-    return stmt.get(String(username).trim());
+  async findByUsername(username) {
+    const result = await db.execute({
+      sql: 'SELECT * FROM usuarios WHERE username = ?',
+      args: [String(username).trim()]
+    });
+    return result.rows[0] || null;
   },
 
   /**
-   * Busca un usuario por ID
+   * Busca un usuario por ID en Turso
    * @param {number|string} id 
    */
-  findById(id) {
-    const stmt = db.prepare('SELECT id, username, nombre, rol, creado_en FROM usuarios WHERE id = ?');
-    return stmt.get(Number(id));
+  async findById(id) {
+    const result = await db.execute({
+      sql: 'SELECT id, username, nombre, rol, creado_en FROM usuarios WHERE id = ?',
+      args: [Number(id)]
+    });
+    return result.rows[0] || null;
   },
 
   /**
    * Verifica credenciales de usuario
    * @param {string} username 
    * @param {string} password 
-   * @returns {Object|null} Objeto usuario seguro (sin password) o null
+   * @returns {Promise<Object|null>} Objeto usuario seguro (sin password) o null
    */
-  verifyCredentials(username, password) {
-    const user = this.findByUsername(username);
+  async verifyCredentials(username, password) {
+    const user = await this.findByUsername(username);
     if (!user) return null;
 
     // Validación de contraseña (plana o hash)
@@ -49,7 +55,7 @@ const usuarioModel = {
   },
 
   /**
-   * Genera un token firmado HMAC-SHA256 (estándar JWT sin dependencias externas)
+   * Genera un token firmado HMAC-SHA256
    * @param {Object} user 
    * @returns {string} Token
    */
