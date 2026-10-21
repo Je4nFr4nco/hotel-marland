@@ -8,6 +8,7 @@ const app = {
   allRooms: [],
   checkinRoomId: null,
   checkinClient: null,
+  checkinManualEntry: false,
   dniLookupTimer: null,
   countdownTimer: null,
   notifiedCheckoutAlerts: new Set(),
@@ -231,9 +232,11 @@ const app = {
 
     this.checkinRoomId = room.id;
     this.checkinClient = null;
+    this.checkinManualEntry = false;
     form.reset();
     document.getElementById('checkin-room-number').textContent = room.numero;
     document.getElementById('checkin-client-card').hidden = true;
+    document.getElementById('checkin-client-name').readOnly = true;
     document.getElementById('checkin-debt-warning').hidden = true;
     document.getElementById('checkin-debt-paid').hidden = true;
     document.getElementById('checkin-dni-status').textContent = '';
@@ -248,14 +251,18 @@ const app = {
     if (modal) modal.hidden = true;
     this.checkinRoomId = null;
     this.checkinClient = null;
+    this.checkinManualEntry = false;
     if (this.dniLookupTimer) clearTimeout(this.dniLookupTimer);
   },
 
   programarConsultaDni(dni) {
     if (this.dniLookupTimer) clearTimeout(this.dniLookupTimer);
     this.checkinClient = null;
+    this.checkinManualEntry = false;
     document.getElementById('checkin-submit').disabled = true;
     document.getElementById('checkin-client-card').hidden = true;
+    document.getElementById('checkin-client-name').value = '';
+    document.getElementById('checkin-client-name').readOnly = true;
     document.getElementById('checkin-dni-status').textContent = '';
 
     if (!/^\d{8}$/.test(dni)) return;
@@ -268,9 +275,17 @@ const app = {
     try {
       const client = await api.consultarClienteDni(dni);
       if (document.getElementById('checkin-dni').value.trim() !== dni) return;
+      if (!client) {
+        this.habilitarIngresoManual(dni, 'DNI no encontrado en API. Ingrese el nombre manualmente.');
+        return;
+      }
+
       this.checkinClient = client;
-      document.getElementById('checkin-client-name').textContent =
-        `${client.nombres} ${client.apellido_paterno} ${client.apellido_materno}`;
+      this.checkinManualEntry = false;
+      document.getElementById('checkin-client-name').value =
+        client.nombre_completo ||
+        [client.nombres, client.apellido_paterno, client.apellido_materno].filter(Boolean).join(' ');
+      document.getElementById('checkin-client-name').readOnly = true;
       document.getElementById('checkin-client-dni').textContent = client.dni;
       document.getElementById('checkin-client-debt').textContent =
         `S/ ${Number(client.deuda).toFixed(2)}`;
@@ -287,8 +302,29 @@ const app = {
     } catch (error) {
       if (document.getElementById('checkin-dni').value.trim() !== dni) return;
       this.checkinClient = null;
-      status.textContent = error.message || 'No se pudo verificar el DNI.';
+      this.habilitarIngresoManual(dni, 'DNI no encontrado en API. Ingrese el nombre manualmente.');
     }
+  },
+
+  habilitarIngresoManual(dni, mensaje) {
+    this.checkinClient = null;
+    this.checkinManualEntry = true;
+    const nameInput = document.getElementById('checkin-client-name');
+    nameInput.value = '';
+    nameInput.readOnly = false;
+    document.getElementById('checkin-client-dni').textContent = dni;
+    document.getElementById('checkin-debt-warning').hidden = true;
+    document.getElementById('checkin-debt-paid').hidden = true;
+    document.getElementById('checkin-client-card').hidden = false;
+    document.getElementById('checkin-dni-status').textContent = mensaje;
+    document.getElementById('checkin-submit').disabled = true;
+    nameInput.focus();
+  },
+
+  actualizarCheckinManual() {
+    if (!this.checkinManualEntry) return;
+    const hasName = Boolean(document.getElementById('checkin-client-name').value.trim());
+    document.getElementById('checkin-submit').disabled = !hasName;
   },
 
   async saldarDeudaCheckin() {
@@ -314,17 +350,21 @@ const app = {
 
   async confirmarCheckin(event) {
     event.preventDefault();
-    if (!this.checkinClient || !this.checkinRoomId || Number(this.checkinClient.deuda) > 0) return;
+    const manualName = document.getElementById('checkin-client-name').value.trim();
+    if ((!this.checkinClient && !this.checkinManualEntry) || !this.checkinRoomId ||
+        (this.checkinClient && Number(this.checkinClient.deuda) > 0) ||
+        (this.checkinManualEntry && !manualName)) return;
 
     const formError = document.getElementById('checkin-form-error');
     const submit = document.getElementById('checkin-submit');
     const room = this.allRooms.find(item => Number(item.id) === Number(this.checkinRoomId));
     const payload = {
-      dni: this.checkinClient.dni,
+      dni: this.checkinManualEntry ? document.getElementById('checkin-dni').value.trim() : this.checkinClient.dni,
       habitacion_numero: room.numero,
       horas_estadia: Number(document.getElementById('checkin-hours').value),
       precio: Number(document.getElementById('checkin-price').value),
-      metodo_pago: document.getElementById('checkin-payment-method').value
+      metodo_pago: document.getElementById('checkin-payment-method').value,
+      ...(this.checkinManualEntry ? { nombre_cliente: manualName } : {})
     };
 
     submit.disabled = true;
@@ -454,6 +494,9 @@ document.addEventListener('DOMContentLoaded', () => {
   app.init();
   document.getElementById('checkin-dni').addEventListener('input', event => {
     app.programarConsultaDni(event.target.value.trim());
+  });
+  document.getElementById('checkin-client-name').addEventListener('input', () => {
+    app.actualizarCheckinManual();
   });
   document.getElementById('checkin-modal').addEventListener('click', event => {
     if (event.target.id === 'checkin-modal') app.cerrarCheckinModal();

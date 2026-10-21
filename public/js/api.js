@@ -150,7 +150,7 @@ const api = {
     if (!response.ok) {
       throw new Error(data.mensaje || data.error || 'No se pudo consultar el DNI');
     }
-    return data.datos;
+    return data.cliente ?? data.datos ?? null;
   },
 
   async saldarDeuda(payload) {

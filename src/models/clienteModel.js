@@ -256,13 +256,28 @@ const clienteModel = {
     const salidaEstimada = new Date(Date.now() + horasEstadia * 60 * 60 * 1000).toISOString();
     const transaction = await db.transaction('write');
     try {
-      const clienteResult = await transaction.execute({
+      let clienteResult = await transaction.execute({
         sql: 'SELECT id, dni, nombres, apellido_paterno, apellido_materno FROM clientes WHERE dni = ?',
         args: [dniNormalizado]
       });
-      const cliente = clienteResult.rows[0];
+      let cliente = clienteResult.rows[0];
       if (!cliente) {
-        throw crearError('Consulte y registre primero el DNI del cliente.', 404);
+        const nombreManual = String(detalles.nombre_cliente || '').trim();
+        if (!nombreManual) {
+          throw crearError('Consulte el DNI o ingrese manualmente el nombre del cliente.', 400);
+        }
+        await transaction.execute({
+          sql: `
+            INSERT INTO clientes (dni, nombres, apellido_paterno, apellido_materno)
+            VALUES (?, ?, '', '')
+          `,
+          args: [dniNormalizado, nombreManual]
+        });
+        clienteResult = await transaction.execute({
+          sql: 'SELECT id, dni, nombres, apellido_paterno, apellido_materno FROM clientes WHERE dni = ?',
+          args: [dniNormalizado]
+        });
+        cliente = clienteResult.rows[0];
       }
 
       const habitacionResult = await transaction.execute({

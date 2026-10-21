@@ -22,8 +22,16 @@ const clienteController = {
   async consultarDni(req, res) {
     try {
       const cliente = await clienteModel.findByDni(req.params.dni);
+      if (!cliente) {
+        return res.status(200).json({
+          exito: false,
+          cliente: null,
+          mensaje: 'Cliente no encontrado'
+        });
+      }
       return res.status(200).json({
         exito: true,
+        cliente,
         datos: cliente
       });
     } catch (error) {
@@ -60,7 +68,7 @@ const clienteController = {
 
   async registrarCheckin(req, res) {
     try {
-      const { dni, habitacion_numero, horas_estadia, precio, metodo_pago } = req.body;
+      const { dni, habitacion_numero, horas_estadia, precio, metodo_pago, nombre_cliente } = req.body;
       if (!dni || !habitacion_numero || horas_estadia === undefined || precio === undefined || !metodo_pago) {
         return res.status(400).json({
           exito: false,
@@ -71,7 +79,8 @@ const clienteController = {
       const alquiler = await clienteModel.registrarCheckin(dni, habitacion_numero, {
         horas_estadia,
         precio,
-        metodo_pago
+        metodo_pago,
+        nombre_cliente
       });
       if (ioInstance) {
         ioInstance.emit('habitacion:actualizada', {
