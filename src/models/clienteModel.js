@@ -17,15 +17,10 @@ function validarDni(dni) {
   return dniNormalizado;
 }
 
-async function guardarCliente(dni, persona) {
-  const nombres = String(persona.nombres || persona.name || '').trim();
+async function guardarCliente(dni, persona, nombresCompletos, direccion) {
+  const nombres = String(persona.nombres || persona.name || nombresCompletos).trim();
   const apellidoPaterno = String(persona.apellido_paterno || persona.apellidoPaterno || '').trim();
   const apellidoMaterno = String(persona.apellido_materno || persona.apellidoMaterno || '').trim();
-  const direccion = String(persona.direccion || persona.direccion_completa || '').trim();
-
-  if (!nombres || !apellidoPaterno || !apellidoMaterno) {
-    throw crearError('La respuesta de API Perú no contiene los datos completos del cliente.', 502);
-  }
 
   await db.execute({
     sql: `
@@ -41,7 +36,7 @@ async function guardarCliente(dni, persona) {
     args: [dni, nombres, apellidoPaterno, apellidoMaterno, direccion]
   });
 
-  return obtenerClientePorDni(dni);
+  return { nombres: nombresCompletos, dni, direccion };
 }
 
 async function obtenerClientePorDni(dni) {
@@ -100,8 +95,18 @@ const clienteModel = {
     if (respuesta.success === false || respuesta.success === 0) {
       throw crearError(respuesta.message || 'API Perú no encontró información para ese DNI.', 404);
     }
-    const persona = respuesta.data || respuesta;
-    return guardarCliente(cleanDni, persona);
+    const resData = respuesta.data || respuesta;
+    const nombresCompletos = String(
+      resData.nombre_completo ||
+      `${resData.nombres || ''} ${resData.apellido_paterno || ''} ${resData.apellido_materno || ''}`
+    ).trim();
+    const direccion = String(resData.direccion_completa || resData.direccion || '').trim();
+
+    if (!nombresCompletos) {
+      throw crearError('API Perú no devolvió el nombre del cliente para ese DNI.', 502);
+    }
+
+    return guardarCliente(cleanDni, resData, nombresCompletos, direccion);
   },
 
   async findLocalByDni(dni) {
