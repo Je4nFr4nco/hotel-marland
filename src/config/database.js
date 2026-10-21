@@ -11,6 +11,33 @@ const DB_PATH = path.join(DB_DIR, 'hotel.db');
 const SCHEMA_PATH = path.join(DB_DIR, 'schema.sql');
 const SEEDS_PATH = path.join(DB_DIR, 'seeds.sql');
 
+const CLIENTES_ALQUILERES_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS clientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dni VARCHAR(8) NOT NULL UNIQUE,
+    nombres VARCHAR(100) NOT NULL,
+    apellido_paterno VARCHAR(100) NOT NULL,
+    apellido_materno VARCHAR(100) NOT NULL,
+    deuda REAL NOT NULL DEFAULT 0 CHECK (deuda >= 0),
+    observaciones_deuda TEXT,
+    creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_clientes_dni ON clientes(dni);
+
+  CREATE TABLE IF NOT EXISTS alquileres (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+    habitacion_id INTEGER NOT NULL REFERENCES habitaciones(id),
+    checkin_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checkout_en DATETIME
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_alquileres_cliente_id ON alquileres(cliente_id);
+  CREATE INDEX IF NOT EXISTS idx_alquileres_habitacion_id ON alquileres(habitacion_id);
+`;
+
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
@@ -44,6 +71,8 @@ async function initDatabase() {
       await db.executeMultiple(schemaSql);
       needsSeed = true;
     }
+
+    await db.executeMultiple(CLIENTES_ALQUILERES_SCHEMA);
 
     const rowCountRes = await db.execute('SELECT count(*) as count FROM habitaciones');
     const userCountRes = await db.execute('SELECT count(*) as count FROM usuarios');
@@ -91,5 +120,6 @@ module.exports = {
   db,
   initDatabase,
   resetDatabase,
-  DB_PATH
+  DB_PATH,
+  CLIENTES_ALQUILERES_SCHEMA
 };
