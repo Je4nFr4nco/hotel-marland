@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS clientes (
     apellido_paterno VARCHAR(100) NOT NULL,
     apellido_materno VARCHAR(100) NOT NULL,
     direccion TEXT,
+    ubigeo TEXT,
     deuda REAL NOT NULL DEFAULT 0 CHECK (deuda >= 0),
     observaciones_deuda TEXT,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

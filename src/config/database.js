@@ -19,6 +19,7 @@ const CLIENTES_ALQUILERES_SCHEMA = `
     apellido_paterno VARCHAR(100) NOT NULL,
     apellido_materno VARCHAR(100) NOT NULL,
     direccion TEXT,
+    ubigeo TEXT,
     deuda REAL NOT NULL DEFAULT 0 CHECK (deuda >= 0),
     observaciones_deuda TEXT,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -65,6 +66,9 @@ async function ensureClientColumns() {
   const existingColumns = new Set(result.rows.map(column => column.name));
   if (!existingColumns.has('direccion')) {
     await db.execute('ALTER TABLE clientes ADD COLUMN direccion TEXT');
+  }
+  if (!existingColumns.has('ubigeo')) {
+    await db.execute('ALTER TABLE clientes ADD COLUMN ubigeo TEXT');
   }
 }
 
