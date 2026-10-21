@@ -1,5 +1,5 @@
 /**
- * Controlador de Habitaciones
+ * Controlador de Habitaciones (Adaptado para Turso)
  * Maneja las solicitudes HTTP y coordina la sincronización en tiempo real vía Socket.io
  */
 const habitacionModel = require('../models/habitacionModel');
@@ -18,10 +18,10 @@ function setSocketIO(io) {
  * GET /api/habitaciones
  * Obtiene la lista de habitaciones con soporte para filtros por piso y estado
  */
-function getHabitaciones(req, res) {
+async function getHabitaciones(req, res) {
   try {
     const { piso, estado, search } = req.query;
-    const habitaciones = habitacionModel.findAll({ piso, estado, search });
+    const habitaciones = await habitacionModel.findAll({ piso, estado, search });
 
     return res.status(200).json({
       exito: true,
@@ -43,10 +43,10 @@ function getHabitaciones(req, res) {
  * GET /api/habitaciones/:id
  * Obtiene el detalle de una habitación específica
  */
-function getHabitacionById(req, res) {
+async function getHabitacionById(req, res) {
   try {
     const { id } = req.params;
-    const habitacion = habitacionModel.findById(id);
+    const habitacion = await habitacionModel.findById(id);
 
     if (!habitacion) {
       return res.status(404).json({
@@ -73,9 +73,9 @@ function getHabitacionById(req, res) {
  * GET /api/habitaciones/stats
  * Devuelve el conteo consolidado por estado y por pisos
  */
-function getEstadisticas(req, res) {
+async function getEstadisticas(req, res) {
   try {
-    const stats = habitacionModel.getEstadisticas();
+    const stats = await habitacionModel.getEstadisticas();
     return res.status(200).json({
       exito: true,
       datos: stats
@@ -94,13 +94,13 @@ function getEstadisticas(req, res) {
  * PATCH /api/habitaciones/:id/estado
  * Actualiza el estado de la habitación tras pasar por el middleware de validación de rol
  */
-function cambiarEstado(req, res) {
+async function cambiarEstado(req, res) {
   try {
     const { id } = req.params;
     const { nuevo_estado, rol, huesped, notas, usuario } = req.body;
     const habitacionAnterior = req.habitacion;
 
-    const habitacionActualizada = habitacionModel.updateEstado(id, nuevo_estado, {
+    const habitacionActualizada = await habitacionModel.updateEstado(id, nuevo_estado, {
       huesped,
       notas
     });
@@ -114,19 +114,19 @@ function cambiarEstado(req, res) {
 
     const payloadEvento = {
       habitacion: habitacionActualizada,
-      estado_anterior: habitacionAnterior.estado,
+      estado_anterior: habitacionAnterior ? habitacionAnterior.estado : null,
       nuevo_estado: habitacionActualizada.estado,
       rol: rol || 'RECEPCION',
       usuario: usuario || (rol === 'LIMPIEZA' ? 'Personal de Limpieza' : 'Recepción'),
       timestamp: new Date().toISOString()
     };
 
-    // Emitir evento en tiempo real a todos los clientes conectados (Recepción y Móviles de Limpieza)
+    // Emitir evento en tiempo real a todos los clientes conectados
     if (ioInstance) {
       ioInstance.emit('habitacion:actualizada', payloadEvento);
 
       // Enviar también estadísticas actualizadas para refrescar KPIs de inmediato
-      const statsActualizadas = habitacionModel.getEstadisticas();
+      const statsActualizadas = await habitacionModel.getEstadisticas();
       ioInstance.emit('stats:actualizadas', statsActualizadas);
     }
 
@@ -135,7 +135,7 @@ function cambiarEstado(req, res) {
       mensaje: `Habitación ${habitacionActualizada.numero} actualizada a ${habitacionActualizada.estado}`,
       datos: habitacionActualizada,
       transicion: {
-        de: habitacionAnterior.estado,
+        de: habitacionAnterior ? habitacionAnterior.estado : null,
         a: habitacionActualizada.estado,
         autorizado_por: rol
       }
@@ -152,12 +152,12 @@ function cambiarEstado(req, res) {
 
 /**
  * POST /api/habitaciones/reset
- * Restablece la base de datos a sus valores iniciales de prueba (útil para demostraciones)
+ * Restablece la base de datos a sus valores iniciales de prueba
  */
-function resetSeeds(req, res) {
+async function resetSeeds(req, res) {
   try {
-    const total = habitacionModel.reset();
-    const stats = habitacionModel.getEstadisticas();
+    const total = await habitacionModel.reset();
+    const stats = await habitacionModel.getEstadisticas();
 
     if (ioInstance) {
       ioInstance.emit('habitaciones:recargadas', {

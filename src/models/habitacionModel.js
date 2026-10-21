@@ -1,5 +1,5 @@
 /**
- * Modelo de Datos: Habitaciones (Minimalista)
+ * Modelo de Datos: Habitaciones (Adaptado para Turso)
  * Capa de abstracción para operaciones SQL sobre la tabla habitaciones
  */
 const { db, resetDatabase } = require('../config/database');
@@ -7,10 +7,10 @@ const { db, resetDatabase } = require('../config/database');
 const habitacionModel = {
   /**
    * Obtiene todas las habitaciones con filtros opcionales por piso y/o estado
-   * @param {Object} filtros - { piso, estado, search }
-   * @returns {Array} Lista de habitaciones ordenadas por piso y número
+   * @param {Object} filtros { piso, estado, search }
+   * @returns {Promise<Array>} Lista de habitaciones ordenadas por piso y número
    */
-  findAll(filtros = {}) {
+  async findAll(filtros = {}) {
     let sql = 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE 1=1';
     const params = [];
 
@@ -26,31 +26,36 @@ const habitacionModel = {
 
     if (filtros.search) {
       sql += ' AND numero LIKE ?';
-      const term = `%${filtros.search}%`;
-      params.push(term);
+      params.push(`%${filtros.search}%`);
     }
 
     sql += ' ORDER BY piso ASC, CAST(numero AS INTEGER) ASC';
-    const stmt = db.prepare(sql);
-    return stmt.all(...params);
+    const result = await db.execute({ sql, args: params });
+    return result.rows;
   },
 
   /**
    * Busca una habitación por su ID
    * @param {number|string} id 
    */
-  findById(id) {
-    const stmt = db.prepare('SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE id = ?');
-    return stmt.get(Number(id));
+  async findById(id) {
+    const result = await db.execute({
+      sql: 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE id = ?',
+      args: [Number(id)]
+    });
+    return result.rows[0] || null;
   },
 
   /**
    * Busca una habitación por su número
    * @param {string} numero 
    */
-  findByNumero(numero) {
-    const stmt = db.prepare('SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE numero = ?');
-    return stmt.get(String(numero));
+  async findByNumero(numero) {
+    const result = await db.execute({
+      sql: 'SELECT id, numero, piso, estado, ultima_actualizacion FROM habitaciones WHERE numero = ?',
+      args: [String(numero)]
+    });
+    return result.rows[0] || null;
   },
 
   /**
@@ -58,28 +63,30 @@ const habitacionModel = {
    * @param {number|string} id 
    * @param {string} nuevoEstado 
    */
-  updateEstado(id, nuevoEstado) {
-    const habitacionActual = this.findById(id);
+  async updateEstado(id, nuevoEstado) {
+    const habitacionActual = await this.findById(id);
     if (!habitacionActual) {
       return null;
     }
 
-    const stmt = db.prepare(`
-      UPDATE habitaciones 
-      SET estado = ?, 
-          ultima_actualizacion = datetime('now', 'localtime')
-      WHERE id = ?
-    `);
+    await db.execute({
+      sql: `
+        UPDATE habitaciones 
+        SET estado = ?, 
+            ultima_actualizacion = datetime('now', 'localtime')
+        WHERE id = ?
+      `,
+      args: [String(nuevoEstado).toUpperCase(), Number(id)]
+    });
 
-    stmt.run(nuevoEstado, Number(id));
-    return this.findById(id);
+    return await this.findById(id);
   },
 
   /**
    * Obtiene métricas estadísticas globales y agrupadas por piso
    */
-  getEstadisticas() {
-    const globalStmt = db.prepare(`
+  async getEstadisticas() {
+    const globalRes = await db.execute(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN estado = 'DISPONIBLE' THEN 1 ELSE 0 END) as disponibles,
@@ -88,9 +95,9 @@ const habitacionModel = {
         SUM(CASE WHEN estado = 'INHABILITADA' THEN 1 ELSE 0 END) as inhabilitadas
       FROM habitaciones
     `);
-    const globalStats = globalStmt.get();
+    const globalStats = globalRes.rows[0] || {};
 
-    const pisosStmt = db.prepare(`
+    const pisosRes = await db.execute(`
       SELECT 
         piso,
         COUNT(*) as total,
@@ -102,14 +109,18 @@ const habitacionModel = {
       GROUP BY piso
       ORDER BY piso ASC
     `);
-    const porPiso = pisosStmt.all();
+    const porPiso = pisosRes.rows;
 
-    const ocupacionPct = globalStats.total > 0 
-      ? Math.round((globalStats.ocupadas / globalStats.total) * 100) 
-      : 0;
+    const total = Number(globalStats.total || 0);
+    const ocupadas = Number(globalStats.ocupadas || 0);
+    const ocupacionPct = total > 0 ? Math.round((ocupadas / total) * 100) : 0;
 
     return {
-      ...globalStats,
+      total,
+      disponibles: Number(globalStats.disponibles || 0),
+      ocupadas,
+      sucias: Number(globalStats.sucias || 0),
+      inhabilitadas: Number(globalStats.inhabilitadas || 0),
       porcentaje_ocupacion: ocupacionPct,
       por_piso: porPiso
     };
@@ -118,8 +129,8 @@ const habitacionModel = {
   /**
    * Restablece la base de datos a los registros iniciales
    */
-  reset() {
-    return resetDatabase();
+  async reset() {
+    return await resetDatabase();
   }
 };
 
