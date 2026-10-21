@@ -19,8 +19,12 @@ function validarDni(dni) {
 
 async function guardarCliente(dni, persona, nombresCompletos, direccion, ubigeo) {
   const nombres = String(persona.NOMBRES || persona.nombres || '').trim();
-  const apellidoPaterno = String(persona.AP_PAT || persona.apPat || '').trim();
-  const apellidoMaterno = String(persona.AP_MAT || persona.apMat || '').trim();
+  const apellidoPaterno = String(
+    persona.AP_PAT || persona.apPat || persona.apellidoPaterno || persona.apellido_paterno || ''
+  ).trim();
+  const apellidoMaterno = String(
+    persona.AP_MAT || persona.apMat || persona.apellidoMaterno || persona.apellido_materno || ''
+  ).trim();
 
   await db.execute({
     sql: `
@@ -56,42 +60,58 @@ async function obtenerClientePorDni(dni) {
 
 const clienteModel = {
   async findByDni(dni) {
-    const cleanDni = validarDni(dni);
-    const token = process.env.RENIEC_API_TOKEN;
+    const cleanDni = String(dni || '').replace(/\D/g, '').trim();
+    if (cleanDni.length !== 8) return null;
+
+    try {
+      const localCliente = await obtenerClientePorDni(cleanDni);
+      if (localCliente) return localCliente;
+    } catch (error) {
+      console.warn('[Cliente DB Warn]', error.message);
+    }
+
+    const token = String(process.env.RENIEC_API_TOKEN || '').trim();
     if (!token) {
       throw crearError('La consulta RENIEC no está configurada en el servidor.', 503);
     }
 
-    const url = new URL(`${RENIEC_API_URL}/${encodeURIComponent(cleanDni)}`);
+    const url = `${RENIEC_API_URL}/${encodeURIComponent(cleanDni)}`;
     let response;
     try {
       response = await fetch(url, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        },
         signal: AbortSignal.timeout(10000)
       });
     } catch (error) {
-      console.error('[Cliente Model] Falló la consulta DNI con autorización en header:', error.message);
+      console.warn('[Cliente Model] Falló la consulta DNI con autorización en header.');
     }
 
-    if (!response || response.status !== 200) {
-      url.searchParams.set('token', token);
+    if (!response || !response.ok) {
+      const fallbackUrl = new URL(url);
+      fallbackUrl.searchParams.set('token', token);
       try {
-        response = await fetch(url, {
+        response = await fetch(fallbackUrl, {
           method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+          },
           signal: AbortSignal.timeout(10000)
         });
       } catch (error) {
-        console.error('[Cliente Model] Falló la consulta DNI con token en URL:', error.message);
+        console.error('[Cliente Model] Falló la consulta DNI de respaldo:', error.message);
         throw crearError('No se pudo conectar con el servicio de consulta DNI.', 502);
       }
     }
 
-    if (response.status !== 200) {
+    if (!response.ok) {
       console.error(`[Cliente Model] El servicio de consulta DNI respondió con estado ${response.status}.`);
-      if (response.status === 404) {
-        throw crearError('No se encontró una persona con ese DNI.', 404);
-      }
+      if (response.status === 404) throw crearError('No se encontró una persona con ese DNI.', 404);
       throw crearError('El servicio de consulta DNI no pudo completar la consulta.', 502);
     }
 
@@ -108,16 +128,22 @@ const clienteModel = {
     }
     const resData = apiData.data || apiData;
     const nombres = String(resData.NOMBRES || resData.nombres || '').trim();
-    const apPat = String(resData.AP_PAT || resData.apPat || resData.apellido_paterno || '').trim();
-    const apMat = String(resData.AP_MAT || resData.apMat || resData.apellido_materno || '').trim();
+    const apPat = String(
+      resData.AP_PAT || resData.apPat || resData.apellidoPaterno || resData.apellido_paterno || ''
+    ).trim();
+    const apMat = String(
+      resData.AP_MAT || resData.apMat || resData.apellidoMaterno || resData.apellido_materno || ''
+    ).trim();
     const nombresCompletos = `${nombres} ${apPat} ${apMat}`.trim();
-    const direccion = String(
+    const direccionBase = String(
       resData.DIRECCION || resData.direccion || resData.direccion_completa || ''
     ).trim();
     const ubigeo = String(resData.UBIGEO_DIR || resData.ubigeo || '').trim();
+    const direccion = [direccionBase, ubigeo].filter(Boolean).join(', ');
 
     if (!nombresCompletos) {
-      throw crearError('El servicio de consulta DNI no devolvió el nombre del cliente.', 502);
+      console.warn('[Cliente Model] La consulta DNI no devolvió nombres para el documento solicitado.');
+      return null;
     }
 
     return guardarCliente(cleanDni, {
